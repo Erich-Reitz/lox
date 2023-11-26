@@ -1,12 +1,15 @@
 import std/os
 
+import impl/lxexpr
 import impl/lexer
+import impl/parser
 import impl/status
 
 proc run(program: string): int =
     let tokens = lex(program)
-    for tk in tokens:
-        echo tk
+    let lexpr = parse(tokens)
+
+    echo toString(lexpr)
     return 0
 
 

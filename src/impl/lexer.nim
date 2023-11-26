@@ -1,4 +1,3 @@
-import std/options
 import std/strutils
 import std/tables
 
@@ -12,7 +11,7 @@ import tokenType
 
 func literalToken(typ: TokenType, lexeme: string, lit: Literal,
         line: int): Token =
-    Token(typ: typ, lexeme: lexeme, literal: some(lit), line: line)
+    Token(typ: typ, lexeme: lexeme, literal: lit, line: line)
 
 proc parseNum(s: var Scanner) =
     let num = lFloat(s)
@@ -36,7 +35,7 @@ proc parseString(s: var Scanner) =
     s.addToken(token)
 
 
-proc parseIden(s: var Scanner) = 
+func parseIden(s: var Scanner) =
     let iden = lIden(s)
     let typ = s.keywords.getOrDefault(iden, tkIdentifier)
     let lit = Literal(kind: lkIden, strVal: iden)
@@ -102,7 +101,7 @@ proc lex*(program: string): seq[Token] =
         s.start = s.current
         scanToken(s)
 
-    let eofToken = Token(typ: tkEof, lexeme: "", literal: none(Literal), line: s.line)
+    let eofToken = Token(typ: tkEof, lexeme: "", literal: nil, line: s.line)
     s.tokens.add(eofToken)
 
     return s.tokens

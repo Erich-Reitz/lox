@@ -1,16 +1,13 @@
-import std/options
 import std/tables
 
-
-import literal
 import token
 import tokenType
 
 type Scanner* = object
   source*: string
-  start*: int 
-  current*: int 
-  line*: int 
+  start*: int
+  current*: int
+  line*: int
   tokens*: seq[Token]
   keywords*: Table[string, TokenType]
 
@@ -44,7 +41,7 @@ func advance*(s: var Scanner): char =
 func addToken*(s: var Scanner, tkType: TokenType) =
   let line = s.line
   let lexeme = s.source[s.start..s.current-1]
-  let token = Token(typ: tkType, literal: none(Literal), lexeme: lexeme, line: line)
+  let token = Token(typ: tkType, literal: nil, lexeme: lexeme, line: line)
   s.tokens.add(token)
 
 func addToken*(s: var Scanner, token: Token) =

@@ -1,3 +1,6 @@
+import token
+import tokenType
+
 var hadError* = false
 
 proc report*(line: int, where: string, message: string) =
@@ -6,3 +9,10 @@ proc report*(line: int, where: string, message: string) =
 
 proc error*(line: int, message: string) =
   report(line, "", message)
+
+proc error*(token: Token, message: string) =
+  if token.typ == tkEOF:
+    report(token.line, " at end", message)
+  else:
+    report(token.line, " at '" & token.lexeme & "'", message)
+

@@ -1,11 +1,9 @@
-import std/options
-
 import literal
 import tokenType
 
 type Token* = object
     typ*: TokenType
-    literal*: Option[Literal]
+    literal*: Literal
     lexeme*: string
     line*: int
 
