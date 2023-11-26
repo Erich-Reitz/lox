@@ -1,37 +1,19 @@
+import env
 import lexceptions
+import lstmt
 import lxexpr
 import status
 import token
 import value
 
-proc isTruthy(obj: Value): bool =
-    if obj == nil:
-        return false
-    if obj.kind == lkBool:
-        return obj.boolVal
-
-    return true
-
-
-proc isEqual(a: Value, b: Value): bool =
-    if a == nil and b == nil:
-        return true
-    if a == nil:
-        return false
-
-    if a.kind != b.kind:
-        return false
-
-    case a.kind:
-        of lkBool:
-            return a.boolVal == b.boolVal
-        of lkNum:
-            return a.numVal == b.numVal
-        of lkString:
-            return a.strVal == b.strVal
-        of lkIden:
-            echo "Warning: Comparing two identifiers"
-            return a.strVal == b.strVal
+# function protoypes
+proc evaluate(exp: ValExpr, env: Env): Value
+proc evaluate(exp: GroupingExpr, env: Env): Value
+proc evaluate(exp: UnaryExpr, env: Env): Value
+proc evaluate(exp: BinExpr, env: Env): Value
+proc evaluate(exp: VarExpr, env: Env): Value
+proc evaluate(exp: AssignExpr, env: Env): Value
+proc execute(s: LStmt, env: Env)
 
 
 
@@ -51,59 +33,36 @@ proc checkNumberOperands(op: Token, left: Value, right: Value) =
     exception.token = op
     raise exception
 
-proc `-`(obj: Value): Value =
-    return Value(kind: lkNum, numVal: -obj.numVal)
 
-
-proc `-`(l: Value, r: Value): Value =
-    return Value(kind: lkNum, numVal: l.numVal - r.numVal)
-
-proc `/`(l: Value, r: Value): Value =
-    return Value(kind: lkNum, numVal: l.numVal / r.numVal)
-
-proc `*`(l: Value, r: Value): Value =
-    return Value(kind: lkNum, numVal: l.numVal * r.numVal)
-
-proc `>`(l: Value, r: Value): Value =
-    return Value(kind: lkBool, boolVal: l.numVal > r.numVal)
-
-proc `>=`(l: Value, r: Value): Value =
-    return Value(kind: lkBool, boolVal: l.numVal >= r.numVal)
-
-proc `<`(l: Value, r: Value): Value =
-    return Value(kind: lkBool, boolVal: l.numVal < r.numVal)
-
-proc `<=`(l: Value, r: Value): Value =
-    return Value(kind: lkBool, boolVal: l.numVal <= r.numVal)
-
-proc `!`(obj: Value): Value =
-    Value(kind: lkBool, boolVal: not isTruthy(obj))
-
-proc evaluate(exp: ValExpr): Value
-proc evaluate(exp: GroupingExpr): Value
-proc evaluate(exp: UnaryExpr): Value
-proc evaluate(exp: BinExpr): Value
-
-proc evaluate(exp: LxExpr): Value =
+proc evaluate(exp: LxExpr, env: Env): Value =
     case exp.kind:
         of ekValue:
-            evaluate(exp.val)
+            evaluate(exp.val, env)
         of ekGrouping:
-            evaluate(exp.group)
+            evaluate(exp.group, env)
         of ekUnary:
-            evaluate(exp.unary)
+            evaluate(exp.unary, env)
         of ekBinary:
-            evaluate(exp.bin)
+            evaluate(exp.bin, env)
+        of ekVar:
+            # TODO: check on the compilier error message if this is exp.varexp, matching the type of the field.
+            # may be able to improve the error message
+            evaluate(exp.varex, env)
+        of ekAssign:
+            evaluate(exp.assign, env)
 
 
-proc evaluate(exp: ValExpr): Value =
+proc evaluate(exp: VarExpr, env: Env): Value =
+    env.get(exp.name)
+
+proc evaluate(exp: ValExpr, env: Env): Value =
     exp.val
 
-proc evaluate(exp: GroupingExpr): Value =
-    evaluate(exp.lexpr)
+proc evaluate(exp: GroupingExpr, env: Env): Value =
+    evaluate(exp.lexpr, env)
 
-proc evaluate(exp: UnaryExpr): Value =
-    let right = evaluate(exp.right)
+proc evaluate(exp: UnaryExpr, env: Env): Value =
+    let right = evaluate(exp.right, env)
     case exp.op.typ:
         of tkMinus:
             checkNumberOperand(exp.op, right)
@@ -113,9 +72,9 @@ proc evaluate(exp: UnaryExpr): Value =
         else:
             raise newException(Exception, "Invalid unary operator")
 
-proc evaluate(exp: BinExpr): Value =
-    let left = evaluate(exp.left)
-    let right = evaluate(exp.right)
+proc evaluate(exp: BinExpr, env: Env): Value =
+    let left = evaluate(exp.left, env)
+    let right = evaluate(exp.right, env)
     case exp.op.typ:
         of tkMinus:
             checkNumberOperands(exp.op, left, right)
@@ -148,16 +107,59 @@ proc evaluate(exp: BinExpr): Value =
             checkNumberOperands(exp.op, left, right)
             return left <= right
         of tkBangEqual:
-            return Value(kind: lkBool, boolVal: not isEqual(left, right))
+            return left != right
         of tkEqualEqual:
-            return Value(kind: lkBool, boolVal: isEqual(left, right))
+            return left == right
         else:
             raise newException(Exception, "Invalid binary operator")
 
-proc interpret*(exp: LxExpr) =
+
+proc evaluate(exp: AssignExpr, env: Env): Value =
+    let value = evaluate(exp.value, env)
+    env.assign(exp.name, value)
+    return value
+
+
+proc execute(s: ExprStmt, env: Env) =
+    discard evaluate(s.exp, env)
+
+proc execute(s: PrintStmt, env: Env) =
+    let v = evaluate(s.exp, env)
+    echo v
+
+proc execute(s: VarStmt, env: Env) =
+    var value: Value = nil
+    if s.init != nil:
+        value = evaluate(s.init, env)
+
+    env.define(s.name.lexeme, value)
+
+proc executeBlock(stmts: seq[LStmt], env: Env) =
+    for stm in stmts:
+        execute(stm, env)
+
+
+proc execute(s: BlockStmt, env: Env) =
+    executeBlock(s.stmts, initEnv(env))
+
+proc execute(s: LStmt, env: Env) =
+    case s.kind:
+    of skPrint:
+        execute(s.print, env)
+    of skExpr:
+        execute(s.exp, env)
+    of skVar:
+        execute(s.varstmt, env)
+    of skBlock:
+        execute(s.blockstmt, env)
+
+
+
+proc interpret*(stmts: seq[LStmt]) =
+    let env = initEnv(nil)
     try:
-        let res = evaluate(exp)
-        echo res
+        for lstmt in stmts:
+            execute(lstmt, env)
     except LoxRuntimeError as e:
         runtimeError(e)
 

@@ -3,7 +3,7 @@ import token
 
 
 type
-    ExprKind* = enum ekBinary, ekGrouping, ekValue, ekUnary
+    ExprKind* = enum ekBinary, ekGrouping, ekValue, ekUnary, ekVar, ekAssign
 
     BinExpr* = object
         left*: LxExpr
@@ -20,9 +20,18 @@ type
         op*: Token
         right*: LxExpr
 
+    VarExpr* = object
+        name*: Token
+
+    AssignExpr* = object
+        name*: Token
+        value*: LxExpr
+
     LxExpr* = ref object
         case kind*: ExprKind
         of ekBinary: bin*: BinExpr
         of ekGrouping: group*: GroupingExpr
         of ekValue: val*: ValExpr
         of ekUnary: unary*: UnaryExpr
+        of ekVar: varex*: VarExpr
+        of ekAssign: assign*: AssignExpr

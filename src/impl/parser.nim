@@ -2,6 +2,7 @@ import lexceptions
 import value
 import lxexpr
 import status
+import lstmt
 import token
 import tokenType
 
@@ -74,20 +75,21 @@ proc match*(p: var Parser, types: varargs[TokenType]): bool =
 
 
 proc expression(p: var Parser): LxExpr
+proc declaration(p: var Parser): LStmt
 
 proc primary(p: var Parser): LxExpr =
     if match(p, tkFalse):
         return LxExpr(kind: ekValue, val: ValExpr(val: Value(
                 kind: lkBool, boolVal: false)))
-
     elif match(p, tkTrue):
         return LxExpr(kind: ekValue, val: ValExpr(val: Value(
                 kind: lkBool, boolVal: true)))
-
     elif match(p, tkNil):
         return LxExpr(kind: ekValue, val: ValExpr(val: nil))
     elif match(p, tkNumber, tkString):
         return LxExpr(kind: ekValue, val: ValExpr(val: previous(p).value))
+    elif match(p, tkIdentifier):
+        return LxExpr(kind: ekVar, varex: VarExpr(name: previous(p)))
     elif match(p, tkLeftParen):
         let lexpr = expression(p)
         discard consume(p, tkRightParen, "expect ')' after expression.")
@@ -145,12 +147,84 @@ proc equality(p: var Parser): LxExpr =
 
     lexpr
 
-proc expression(p: var Parser): LxExpr =
-    equality(p)
 
-proc parse*(tokens: seq[Token]): LxExpr =
-    var p = Parser(tokens: tokens)
+proc assignment(p: var Parser): LxExpr =
+    let lexpr = equality(p)
+
+    if match(p, tkEqual):
+        let equals = previous(p)
+        let value = assignment(p)
+
+        if lexpr.kind == ekVar:
+            let name = lexpr.varex.name
+            return LxExpr(kind: ekAssign, assign: AssignExpr(name: name, value: value))
+
+        error(equals, "invalid assignment target.")
+
+
+    lexpr
+
+
+proc expression(p: var Parser): LxExpr =
+    assignment(p)
+
+proc exprStmt(p: var Parser): LStmt =
+    let lexpr = expression(p)
+    discard consume(p, tkSemicolon, "expect ';' after expression.")
+    return LStmt(kind: skExpr, exp: ExprStmt(exp: lexpr))
+
+proc printStmt(p: var Parser): LStmt =
+    let lexpr = expression(p)
+    discard consume(p, tkSemicolon, "expect ';' after value.")
+    return LStmt(kind: skPrint, print: PrintStmt(exp: lexpr))
+
+proc blockStmt(p: var Parser): LStmt =
+    var stmts: seq[LStmt] = @[]
+
+    while isAtEnd(p) == false and check(p, tkRightBrace) == false:
+        let stm = declaration(p)
+        stmts.add(stm)
+
+    discard consume(p, tkRightBrace, "expect '}' after block.")
+
+    LStmt(kind: skBlock, blockstmt: BlockStmt(stmts: stmts))
+
+proc statement(p: var Parser): LStmt =
+    if match(p, tkPrint):
+        return printStmt(p)
+    if match(p, tkLeftBrace):
+        return blockStmt(p)
+
+    return exprStmt(p)
+
+
+proc varDeclaration(p: var Parser): LStmt =
+    let name = consume(p, tkIdentifier, "expect variable name.")
+
+    var initializer: LxExpr = nil
+    if match(p, tkEqual):
+        initializer = expression(p)
+
+    discard consume(p, tkSemicolon, "expect ';' after variable declaration.")
+    return LStmt(kind: skVar, varstmt: VarStmt(name: name, init: initializer))
+
+proc declaration(p: var Parser): LStmt =
     try:
-        return expression(p)
+        if match(p, tkVar):
+            return varDeclaration(p)
+        return statement(p)
     except LoxParseError:
+        synchronize(p)
         return nil
+
+
+
+proc parse*(tokens: seq[Token]): seq[LStmt] =
+    var p = Parser(tokens: tokens)
+    var stmts: seq[LStmt] = @[]
+
+    while isAtEnd(p) == false:
+        let stm = declaration(p)
+        stmts.add(stm)
+
+    stmts
