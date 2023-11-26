@@ -3,7 +3,7 @@ import token
 
 
 type
-    StmtKind* = enum skPrint, skExpr, skVar, skBlock
+    StmtKind* = enum skPrint, skExpr, skVar, skBlock, skIf, skWhile
 
     ExprStmt* = object
         exp*: LxExpr
@@ -18,6 +18,16 @@ type
     BlockStmt* = object
         stmts*: seq[LStmt]
 
+    IfStmt* = object
+        cond*: LxExpr
+        thenBranch*: LStmt
+        elseBranch*: LStmt
+
+    WhileStmt* = object
+        cond*: LxExpr
+        body*: LStmt
+
+
 
     LStmt* = ref object
         case kind*: StmtKind
@@ -29,3 +39,7 @@ type
             varstmt*: VarStmt
         of skBlock:
             blockstmt*: BlockStmt
+        of skIf:
+            ifstmt*: IfStmt
+        of skWhile:
+            whilestmt*: WhileStmt

@@ -13,6 +13,7 @@ proc evaluate(exp: UnaryExpr, env: Env): Value
 proc evaluate(exp: BinExpr, env: Env): Value
 proc evaluate(exp: VarExpr, env: Env): Value
 proc evaluate(exp: AssignExpr, env: Env): Value
+proc evaluate(exp: LogicalExpr, env: Env): Value
 proc execute(s: LStmt, env: Env)
 
 
@@ -50,6 +51,8 @@ proc evaluate(exp: LxExpr, env: Env): Value =
             evaluate(exp.varex, env)
         of ekAssign:
             evaluate(exp.assign, env)
+        of ekLogical:
+            evaluate(exp.logical, env)
 
 
 proc evaluate(exp: VarExpr, env: Env): Value =
@@ -120,6 +123,19 @@ proc evaluate(exp: AssignExpr, env: Env): Value =
     return value
 
 
+proc evaluate(exp: LogicalExpr, env: Env): Value =
+    let left = evaluate(exp.left, env)
+    case exp.op.typ:
+        of tkOr:
+            if isTruthy(left): return left
+        of tkAnd:
+            if not isTruthy(left): return left
+        else:
+            raise newException(Exception, "Invalid logical operator")
+
+    return evaluate(exp.right, env)
+
+
 proc execute(s: ExprStmt, env: Env) =
     discard evaluate(s.exp, env)
 
@@ -142,6 +158,17 @@ proc executeBlock(stmts: seq[LStmt], env: Env) =
 proc execute(s: BlockStmt, env: Env) =
     executeBlock(s.stmts, initEnv(env))
 
+proc execute(s: IfStmt, env: Env) =
+    if isTruthy(evaluate(s.cond, env)):
+        execute(s.thenBranch, env)
+    elif s.elseBranch != nil:
+        execute(s.elseBranch, env)
+
+
+proc execute(s: WhileStmt, env: Env) =
+    while isTruthy(evaluate(s.cond, env)):
+        execute(s.body, env)
+
 proc execute(s: LStmt, env: Env) =
     case s.kind:
     of skPrint:
@@ -152,7 +179,10 @@ proc execute(s: LStmt, env: Env) =
         execute(s.varstmt, env)
     of skBlock:
         execute(s.blockstmt, env)
-
+    of skIf:
+        execute(s.ifstmt, env)
+    of skWhile:
+        execute(s.whilestmt, env)
 
 
 proc interpret*(stmts: seq[LStmt]) =

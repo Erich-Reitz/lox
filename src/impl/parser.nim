@@ -76,6 +76,8 @@ proc match*(p: var Parser, types: varargs[TokenType]): bool =
 
 proc expression(p: var Parser): LxExpr
 proc declaration(p: var Parser): LStmt
+proc statement(p: var Parser): LStmt
+proc varDeclaration(p: var Parser): LStmt
 
 proc primary(p: var Parser): LxExpr =
     if match(p, tkFalse):
@@ -147,9 +149,30 @@ proc equality(p: var Parser): LxExpr =
 
     lexpr
 
+proc logicalAnd(p: var Parser): LxExpr =
+    var lexpr = equality(p)
+
+    while match(p, tkAnd):
+        let op = previous(p)
+        let right = equality(p)
+        lexpr = LxExpr(kind: ekLogical, logical: LogicalExpr(left: lexpr,
+                op: op, right: right))
+
+    lexpr
+
+proc logicalOr(p: var Parser): LxExpr =
+    var lexpr = logicalAnd(p)
+
+    while match(p, tkOr):
+        let op = previous(p)
+        let right = logicalAnd(p)
+        lexpr = LxExpr(kind: ekLogical, logical: LogicalExpr(left: lexpr,
+                op: op, right: right))
+
+    lexpr
 
 proc assignment(p: var Parser): LxExpr =
-    let lexpr = equality(p)
+    let lexpr = logicalOr(p)
 
     if match(p, tkEqual):
         let equals = previous(p)
@@ -189,11 +212,80 @@ proc blockStmt(p: var Parser): LStmt =
 
     LStmt(kind: skBlock, blockstmt: BlockStmt(stmts: stmts))
 
+proc ifStmt(p: var Parser): LStmt =
+    discard consume(p, tkLeftParen, "expect '(' after 'if'.")
+    let cond = expression(p)
+    discard consume(p, tkRightParen, "expect ')' after if condition.")
+
+    let thenBranch = statement(p)
+    var elseBranch: LStmt = nil
+    if match(p, tkElse):
+        elseBranch = statement(p)
+
+    LStmt(kind: skIf, ifstmt: IfStmt(cond: cond, thenBranch: thenBranch,
+            elseBranch: elseBranch))
+
+proc whileStmt(p: var Parser): LStmt =
+    discard consume(p, tkLeftParen, "expect '(' after 'while'.")
+    let cond = expression(p)
+    discard consume(p, tkRightParen, "expect ')' after condition.")
+    let body = statement(p)
+
+    LStmt(kind: skWhile, whilestmt: WhileStmt(cond: cond, body: body))
+
+proc forStmt(p: var Parser): LStmt =
+    discard consume(p, tkLeftParen, "expect '(' after 'for'.")
+
+    var initializer: LStmt = nil
+    if match(p, tkSemicolon):
+        initializer = nil
+    elif match(p, tkVar):
+        initializer = varDeclaration(p)
+    else:
+        initializer = exprStmt(p)
+
+    var cond: LxExpr = nil
+    if check(p, tkSemicolon) == false:
+        cond = expression(p)
+
+    discard consume(p, tkSemicolon, "expect ';' after loop condition.")
+
+    var increment: LxExpr = nil
+    if check(p, tkRightParen) == false:
+        increment = expression(p)
+
+    discard consume(p, tkRightParen, "expect ')' after for clauses.")
+
+    var body = statement(p)
+
+    if increment != nil:
+        body = LStmt(kind: skBlock, blockstmt: BlockStmt(stmts: @[body,
+                LStmt(kind: skExpr, exp: ExprStmt(exp: increment))]))
+
+    if cond == nil:
+        cond = LxExpr(kind: ekValue, val: ValExpr(val: Value(kind: lkBool,
+                boolVal: true)))
+
+    body = LStmt(kind: skWhile, whilestmt: WhileStmt(cond: cond, body: body))
+
+    if initializer != nil:
+        body = LStmt(kind: skBlock, blockstmt: BlockStmt(stmts: @[initializer,
+                body]))
+
+
+    body
+
 proc statement(p: var Parser): LStmt =
+    if match(p, tkFor):
+        return forStmt(p)
     if match(p, tkPrint):
         return printStmt(p)
+    if match(p, tkWhile):
+        return whileStmt(p)
     if match(p, tkLeftBrace):
         return blockStmt(p)
+    if match(p, tkIf):
+        return ifStmt(p)
 
     return exprStmt(p)
 

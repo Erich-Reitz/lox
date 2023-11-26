@@ -6,20 +6,20 @@ var hadError* = false
 var hadRuntimeError* = false
 
 proc report*(line: int, where: string, message: string) =
-  echo "[line " & $line & "] Error" & $where & ": " & $message
-  hadError = true
+    echo "[line " & $line & "] Error" & $where & ": " & $message
+    hadError = true
 
 proc error*(line: int, message: string) =
-  report(line, "", message)
+    report(line, "", message)
 
 proc error*(token: Token, message: string) =
-  if token.typ == tkEOF:
-    report(token.line, " at end", message)
-  else:
-    report(token.line, " at '" & token.lexeme & "'", message)
+    if token.typ == tkEOF:
+        report(token.line, " at end", message)
+    else:
+        report(token.line, " at '" & token.lexeme & "'", message)
 
 proc runtimeError*(error: LoxRuntimeError) =
-  echo error.msg & "\n[line " & $error.token.line & "]"
-  hadRuntimeError = true
+    echo error.msg & "\n[line " & $error.token.line & "]"
+    hadRuntimeError = true
 
 
