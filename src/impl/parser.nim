@@ -1,4 +1,5 @@
-import literal
+import lexceptions
+import value
 import lxexpr
 import status
 import token
@@ -9,7 +10,7 @@ type Parser* = object
     tokens*: seq[Token]
     current*: int = 0
 
-type ParseError = object of CatchableError
+
 
 func peek(p: Parser): Token =
     p.tokens[p.current]
@@ -53,7 +54,7 @@ proc consume(p: var Parser, typ: TokenType, msg: string): Token =
         return advance(p)
 
     error(peek(p), msg)
-    raise newException(ParseError, msg)
+    raise newException(LoxParseError, msg)
 
 
 
@@ -76,24 +77,24 @@ proc expression(p: var Parser): LxExpr
 
 proc primary(p: var Parser): LxExpr =
     if match(p, tkFalse):
-        return LxExpr(kind: ekLiteral, lit: LiteralExpr(value: Literal(
+        return LxExpr(kind: ekValue, val: ValExpr(val: Value(
                 kind: lkBool, boolVal: false)))
 
     elif match(p, tkTrue):
-        return LxExpr(kind: ekLiteral, lit: LiteralExpr(value: Literal(
+        return LxExpr(kind: ekValue, val: ValExpr(val: Value(
                 kind: lkBool, boolVal: true)))
 
     elif match(p, tkNil):
-        return LxExpr(kind: ekLiteral, lit: LiteralExpr(value: nil))
+        return LxExpr(kind: ekValue, val: ValExpr(val: nil))
     elif match(p, tkNumber, tkString):
-        return LxExpr(kind: ekLiteral, lit: LiteralExpr(value: previous(p).literal))
+        return LxExpr(kind: ekValue, val: ValExpr(val: previous(p).value))
     elif match(p, tkLeftParen):
         let lexpr = expression(p)
         discard consume(p, tkRightParen, "expect ')' after expression.")
         return LxExpr(kind: ekGrouping, group: GroupingExpr(lexpr: lexpr))
     else:
         error(peek(p), "expect expression.")
-        raise newException(ParseError, "expect expression.")
+        raise newException(LoxParseError, "expect expression.")
 
 proc unary(p: var Parser): LxExpr =
     if match(p, tkBang, tkMinus):
@@ -151,5 +152,5 @@ proc parse*(tokens: seq[Token]): LxExpr =
     var p = Parser(tokens: tokens)
     try:
         return expression(p)
-    except ParseError:
+    except LoxParseError:
         return nil

@@ -1,22 +1,33 @@
 import std/os
 
-import impl/lxexpr
+
 import impl/lexer
+import impl/interpreter
 import impl/parser
 import impl/status
 
-proc run(program: string): int =
+proc run(program: string): void =
     let tokens = lex(program)
     let lexpr = parse(tokens)
+    if status.hadError:
+        return
+    interpret(lexpr)
 
-    echo toString(lexpr)
-    return 0
+
 
 
 proc runfile(filename: string): int =
     try:
         let contents = readFile(filename)
-        return run(contents)
+        run(contents)
+        if hadError:
+            return 65
+        if hadRuntimeError:
+            return 70
+
+        return 0
+
+
     except IOError as e:
         echo e.msg
         return QuitFailure
@@ -28,7 +39,7 @@ proc runPrompt(): int =
         if len(line) == 0:
             break
 
-        result = run(line)
+        run(line)
         status.hadError = false
     return QuitSuccess
 

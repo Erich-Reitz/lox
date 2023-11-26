@@ -2,35 +2,36 @@ import std/strutils
 import std/tables
 
 
-import literal
+
 import lexutils
 import scanner
 import status
 import token
 import tokenType
+import value
 
-func literalToken(typ: TokenType, lexeme: string, lit: Literal,
+func valueToken(typ: TokenType, lexeme: string, lit: Value,
         line: int): Token =
-    Token(typ: typ, lexeme: lexeme, literal: lit, line: line)
+    Token(typ: typ, lexeme: lexeme, value: lit, line: line)
 
 proc parseNum(s: var Scanner) =
     let num = lFloat(s)
-    let lit = Literal(kind: lkNum, numVal: num)
+    let lit = Value(kind: lkNum, numVal: num)
     let lexeme = s.source[s.start..s.current-1]
     let line = s.line
 
-    let token = literalToken(tkNumber, lexeme, lit, line)
+    let token = valueToken(tkNumber, lexeme, lit, line)
 
     s.addToken(token)
 
 
 proc parseString(s: var Scanner) =
     let str = lStr(s)
-    let lit = Literal(kind: lkString, strVal: str)
+    let lit = Value(kind: lkString, strVal: str)
     let lexeme = s.source[s.start..s.current-1]
     let line = s.line
 
-    let token = literalToken(tkString, lexeme, lit, line)
+    let token = valueToken(tkString, lexeme, lit, line)
 
     s.addToken(token)
 
@@ -38,10 +39,10 @@ proc parseString(s: var Scanner) =
 func parseIden(s: var Scanner) =
     let iden = lIden(s)
     let typ = s.keywords.getOrDefault(iden, tkIdentifier)
-    let lit = Literal(kind: lkIden, strVal: iden)
+    let lit = Value(kind: lkIden, strVal: iden)
     let lexeme = s.source[s.start..s.current-1]
 
-    let token = literalToken(typ, lexeme, lit, s.line)
+    let token = valueToken(typ, lexeme, lit, s.line)
 
     s.addToken(token)
 
@@ -101,7 +102,7 @@ proc lex*(program: string): seq[Token] =
         s.start = s.current
         scanToken(s)
 
-    let eofToken = Token(typ: tkEof, lexeme: "", literal: nil, line: s.line)
+    let eofToken = Token(typ: tkEof, lexeme: "", value: nil, line: s.line)
     s.tokens.add(eofToken)
 
     return s.tokens

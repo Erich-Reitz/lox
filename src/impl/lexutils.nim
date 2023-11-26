@@ -27,7 +27,7 @@ proc lStr*(s: var Scanner): string =
 
     discard advance(s)
 
-    s.source.substr(s.start, s.current - 1)
+    s.source.substr(s.start + 1, s.current - 2)
 
 func allowedIdentifierChar(c: char): bool =
     isAlphaNumeric(c) or @['_', '?', '-'].contains(c)
