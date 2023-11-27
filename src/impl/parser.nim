@@ -301,11 +301,22 @@ proc forStmt(p: var Parser): LStmt =
 
     body
 
+proc retStmt(p: var Parser): LStmt =
+    let keyword = previous(p)
+    var value: LxExpr = nil
+    if check(p, tkSemicolon) == false:
+        value = expression(p)
+
+    discard consume(p, tkSemicolon, "expect ';' after return value.")
+    LStmt(kind: skReturn, returnstmt: ReturnStmt(keyword: keyword, value: value))
+
 proc statement(p: var Parser): LStmt =
     if match(p, tkFor):
         return forStmt(p)
     if match(p, tkPrint):
         return printStmt(p)
+    if match(p, tkReturn):
+        return retStmt(p)
     if match(p, tkWhile):
         return whileStmt(p)
     if match(p, tkLeftBrace):

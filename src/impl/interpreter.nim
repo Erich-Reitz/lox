@@ -17,7 +17,7 @@ proc execute(s: LStmt, inter: var Interpreter)
 proc executeBlock*(stmts: seq[LStmt], inter: var Interpreter, newEnv: Env)
 
 
-func createUserDefinedLoxFunction(name: string, stm: FuncStmt): LoxCallable =
+func createUserDefinedLoxFunction(stm: FuncStmt, closure: Env): LoxCallable =
     let params = stm.params
     let body = stm.body
 
@@ -25,13 +25,17 @@ func createUserDefinedLoxFunction(name: string, stm: FuncStmt): LoxCallable =
 
     var function = LoxFunction()
     function.arity = arity
+    # "This is the environment that is active when the function is declared not when it’s called"
+    function.closure = closure
     function.call = proc(inter: var Interpreter, args: seq[Value]): Value =
-        let env = initEnv(inter.globals)
+        let env = initEnv(closure)
         for i in 0 ..< arity:
             env.define(params[i].lexeme, args[i])
 
-
-        executeBlock(body, inter, env)
+        try:
+            executeBlock(body, inter, env)
+        except LoxReturn as ret:
+            return ret.value
 
     return function
 
@@ -220,9 +224,18 @@ proc execute(s: WhileStmt, inter: var Interpreter) =
         execute(s.body, inter)
 
 proc execute(s: FuncStmt, inter: var Interpreter) =
-    let function = createUserDefinedLoxFunction(s.name.lexeme, s)
+    let function = createUserDefinedLoxFunction(s, inter.environment)
     inter.environment.define(s.name.lexeme, Value(kind: lkFunction,
             funcVal: function))
+
+proc execute(s: ReturnStmt, inter: var Interpreter) =
+    var value: Value = nil
+    if s.value != nil:
+        value = evaluate(s.value, inter)
+
+    var ret = newException(LoxReturn, "")
+    ret.value = value
+    raise ret
 
 
 proc execute(s: LStmt, inter: var Interpreter) =
@@ -241,6 +254,8 @@ proc execute(s: LStmt, inter: var Interpreter) =
         execute(s.whilestmt, inter)
     of skFunc:
         execute(s.funcstmt, inter)
+    of skReturn:
+        execute(s.returnstmt, inter)
 
 
 proc interpret*(stmts: seq[LStmt]) =

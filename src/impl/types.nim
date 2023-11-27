@@ -10,6 +10,8 @@ type
 
     LoxParseError* = object of CatchableError
 
+    LoxReturn* = object of CatchableError
+        value*: Value
 
     TokenType* = enum
         tkLeftParen, tkRightParen, tkLeftBrace, tkRightBrace,
@@ -51,6 +53,7 @@ type
 
     LoxFunction* = ref object of LoxCallable
         declaration*: FuncStmt
+        closure*: Env
 
 
 
@@ -111,7 +114,7 @@ type
         of ekCall: call*: CallExpr
 
 
-    StmtKind* = enum skPrint, skExpr, skVar, skBlock, skIf, skWhile, skFunc
+    StmtKind* = enum skPrint, skExpr, skVar, skBlock, skIf, skWhile, skFunc, skReturn
 
     ExprStmt* = object
         exp*: LxExpr
@@ -140,6 +143,10 @@ type
         params*: seq[Token]
         body*: seq[LStmt]
 
+    ReturnStmt* = object
+        keyword*: Token
+        value*: LxExpr
+
     LStmt* = ref object
         case kind*: StmtKind
         of skPrint:
@@ -156,3 +163,7 @@ type
             whilestmt*: WhileStmt
         of skFunc:
             funcstmt*: FuncStmt
+        of skReturn:
+            returnstmt*: ReturnStmt
+
+
