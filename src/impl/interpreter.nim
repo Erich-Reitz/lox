@@ -1,22 +1,39 @@
+import builtins
 import env
-import lexceptions
-import lstmt
-import lxexpr
 import status
-import token
 import value
+import types
 
 # function protoypes
-proc evaluate(exp: ValExpr, env: Env): Value
-proc evaluate(exp: GroupingExpr, env: Env): Value
-proc evaluate(exp: UnaryExpr, env: Env): Value
-proc evaluate(exp: BinExpr, env: Env): Value
-proc evaluate(exp: VarExpr, env: Env): Value
-proc evaluate(exp: AssignExpr, env: Env): Value
-proc evaluate(exp: LogicalExpr, env: Env): Value
-proc execute(s: LStmt, env: Env)
+proc evaluate(exp: ValExpr, inter: var Interpreter): Value
+proc evaluate(exp: GroupingExpr, inter: var Interpreter): Value
+proc evaluate(exp: UnaryExpr, inter: var Interpreter): Value
+proc evaluate(exp: BinExpr, inter: var Interpreter): Value
+proc evaluate(exp: VarExpr, inter: var Interpreter): Value
+proc evaluate(exp: AssignExpr, inter: var Interpreter): Value
+proc evaluate(exp: LogicalExpr, inter: var Interpreter): Value
+proc evaluate(exp: CallExpr, inter: var Interpreter): Value
+proc execute(s: LStmt, inter: var Interpreter)
+proc executeBlock*(stmts: seq[LStmt], inter: var Interpreter, newEnv: Env)
 
 
+func createUserDefinedLoxFunction(name: string, stm: FuncStmt): LoxCallable =
+    let params = stm.params
+    let body = stm.body
+
+    let arity = params.len
+
+    var function = LoxFunction()
+    function.arity = arity
+    function.call = proc(inter: var Interpreter, args: seq[Value]): Value =
+        let env = initEnv(inter.globals)
+        for i in 0 ..< arity:
+            env.define(params[i].lexeme, args[i])
+
+
+        executeBlock(body, inter, env)
+
+    return function
 
 proc checkNumberOperand(op: Token, operand: Value) =
     if operand.kind == lkNum:
@@ -35,37 +52,39 @@ proc checkNumberOperands(op: Token, left: Value, right: Value) =
     raise exception
 
 
-proc evaluate(exp: LxExpr, env: Env): Value =
+proc evaluate(exp: LxExpr, inter: var Interpreter): Value =
     case exp.kind:
         of ekValue:
-            evaluate(exp.val, env)
+            evaluate(exp.val, inter)
         of ekGrouping:
-            evaluate(exp.group, env)
+            evaluate(exp.group, inter)
         of ekUnary:
-            evaluate(exp.unary, env)
+            evaluate(exp.unary, inter)
         of ekBinary:
-            evaluate(exp.bin, env)
+            evaluate(exp.bin, inter)
         of ekVar:
             # TODO: check on the compilier error message if this is exp.varexp, matching the type of the field.
             # may be able to improve the error message
-            evaluate(exp.varex, env)
+            evaluate(exp.varex, inter)
         of ekAssign:
-            evaluate(exp.assign, env)
+            evaluate(exp.assign, inter)
         of ekLogical:
-            evaluate(exp.logical, env)
+            evaluate(exp.logical, inter)
+        of ekCall:
+            evaluate(exp.call, inter)
 
 
-proc evaluate(exp: VarExpr, env: Env): Value =
-    env.get(exp.name)
+proc evaluate(exp: VarExpr, inter: var Interpreter): Value =
+    inter.environment.get(exp.name)
 
-proc evaluate(exp: ValExpr, env: Env): Value =
+proc evaluate(exp: ValExpr, inter: var Interpreter): Value =
     exp.val
 
-proc evaluate(exp: GroupingExpr, env: Env): Value =
-    evaluate(exp.lexpr, env)
+proc evaluate(exp: GroupingExpr, inter: var Interpreter): Value =
+    evaluate(exp.lexpr, inter)
 
-proc evaluate(exp: UnaryExpr, env: Env): Value =
-    let right = evaluate(exp.right, env)
+proc evaluate(exp: UnaryExpr, inter: var Interpreter): Value =
+    let right = evaluate(exp.right, inter)
     case exp.op.typ:
         of tkMinus:
             checkNumberOperand(exp.op, right)
@@ -75,9 +94,9 @@ proc evaluate(exp: UnaryExpr, env: Env): Value =
         else:
             raise newException(Exception, "Invalid unary operator")
 
-proc evaluate(exp: BinExpr, env: Env): Value =
-    let left = evaluate(exp.left, env)
-    let right = evaluate(exp.right, env)
+proc evaluate(exp: BinExpr, inter: var Interpreter): Value =
+    let left = evaluate(exp.left, inter)
+    let right = evaluate(exp.right, inter)
     case exp.op.typ:
         of tkMinus:
             checkNumberOperands(exp.op, left, right)
@@ -117,14 +136,15 @@ proc evaluate(exp: BinExpr, env: Env): Value =
             raise newException(Exception, "Invalid binary operator")
 
 
-proc evaluate(exp: AssignExpr, env: Env): Value =
-    let value = evaluate(exp.value, env)
-    env.assign(exp.name, value)
+proc evaluate(exp: AssignExpr, inter: var Interpreter): Value =
+    let value = evaluate(exp.value, inter)
+    inter.environment.assign(exp.name, value)
+
     return value
 
 
-proc evaluate(exp: LogicalExpr, env: Env): Value =
-    let left = evaluate(exp.left, env)
+proc evaluate(exp: LogicalExpr, inter: var Interpreter): Value =
+    let left = evaluate(exp.left, inter)
     case exp.op.typ:
         of tkOr:
             if isTruthy(left): return left
@@ -133,63 +153,104 @@ proc evaluate(exp: LogicalExpr, env: Env): Value =
         else:
             raise newException(Exception, "Invalid logical operator")
 
-    return evaluate(exp.right, env)
+    return evaluate(exp.right, inter)
+
+proc evaluate(exp: CallExpr, inter: var Interpreter): Value =
+    let callee = evaluate(exp.callee, inter)
+
+    var arguments = newSeq[Value]()
+    for arg in exp.args:
+        arguments.add(evaluate(arg, inter))
+
+    if callee.kind != lkFunction:
+        var exception = newException(LoxInvalidCast, "Can only call functions and classes.")
+        exception.token = exp.paren
+        raise exception
+
+    let function = callee.funcVal
+
+    if arguments.len != function.arity:
+        var exception = newException(LoxInvalidCast, "Expected " &
+                $function.arity & " arguments but got " & $arguments.len & ".")
+        exception.token = exp.paren
+        raise exception
+
+    function.call(inter, arguments)
 
 
-proc execute(s: ExprStmt, env: Env) =
-    discard evaluate(s.exp, env)
 
-proc execute(s: PrintStmt, env: Env) =
-    let v = evaluate(s.exp, env)
+
+proc execute(s: ExprStmt, inter: var Interpreter) =
+    discard evaluate(s.exp, inter)
+
+proc execute(s: PrintStmt, inter: var Interpreter) =
+    let v = evaluate(s.exp, inter)
     echo v
 
-proc execute(s: VarStmt, env: Env) =
+proc execute(s: VarStmt, inter: var Interpreter) =
     var value: Value = nil
     if s.init != nil:
-        value = evaluate(s.init, env)
+        value = evaluate(s.init, inter)
 
-    env.define(s.name.lexeme, value)
+    inter.environment.define(s.name.lexeme, value)
 
-proc executeBlock(stmts: seq[LStmt], env: Env) =
-    for stm in stmts:
-        execute(stm, env)
+proc executeBlock*(stmts: seq[LStmt], inter: var Interpreter, newEnv: Env) =
+    let previous = inter.environment
+    try:
+        inter.environment = newEnv
+        for stm in stmts:
+            execute(stm, inter)
+    finally:
+        inter.environment = previous
 
 
-proc execute(s: BlockStmt, env: Env) =
-    executeBlock(s.stmts, initEnv(env))
 
-proc execute(s: IfStmt, env: Env) =
-    if isTruthy(evaluate(s.cond, env)):
-        execute(s.thenBranch, env)
+proc execute(s: BlockStmt, inter: var Interpreter) =
+    executeBlock(s.stmts, inter, initEnv(inter.environment))
+
+proc execute(s: IfStmt, inter: var Interpreter) =
+    if isTruthy(evaluate(s.cond, inter)):
+        execute(s.thenBranch, inter)
     elif s.elseBranch != nil:
-        execute(s.elseBranch, env)
+        execute(s.elseBranch, inter)
 
 
-proc execute(s: WhileStmt, env: Env) =
-    while isTruthy(evaluate(s.cond, env)):
-        execute(s.body, env)
+proc execute(s: WhileStmt, inter: var Interpreter) =
+    while isTruthy(evaluate(s.cond, inter)):
+        execute(s.body, inter)
 
-proc execute(s: LStmt, env: Env) =
+proc execute(s: FuncStmt, inter: var Interpreter) =
+    let function = createUserDefinedLoxFunction(s.name.lexeme, s)
+    inter.environment.define(s.name.lexeme, Value(kind: lkFunction,
+            funcVal: function))
+
+
+proc execute(s: LStmt, inter: var Interpreter) =
     case s.kind:
     of skPrint:
-        execute(s.print, env)
+        execute(s.print, inter)
     of skExpr:
-        execute(s.exp, env)
+        execute(s.exp, inter)
     of skVar:
-        execute(s.varstmt, env)
+        execute(s.varstmt, inter)
     of skBlock:
-        execute(s.blockstmt, env)
+        execute(s.blockstmt, inter)
     of skIf:
-        execute(s.ifstmt, env)
+        execute(s.ifstmt, inter)
     of skWhile:
-        execute(s.whilestmt, env)
+        execute(s.whilestmt, inter)
+    of skFunc:
+        execute(s.funcstmt, inter)
 
 
 proc interpret*(stmts: seq[LStmt]) =
-    let env = initEnv(nil)
+    var interpreter = Interpreter()
+    interpreter.globals = initEnv(nil)
+    interpreter.globals.define("clock", clockBuiltin)
+    interpreter.environment = interpreter.globals
     try:
         for lstmt in stmts:
-            execute(lstmt, env)
+            execute(lstmt, interpreter)
     except LoxRuntimeError as e:
         runtimeError(e)
 

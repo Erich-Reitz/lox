@@ -1,10 +1,5 @@
-import lexceptions
-import value
-import lxexpr
 import status
-import lstmt
-import token
-import tokenType
+import types
 
 
 type Parser* = object
@@ -100,13 +95,44 @@ proc primary(p: var Parser): LxExpr =
         error(peek(p), "expect expression.")
         raise newException(LoxParseError, "expect expression.")
 
+
+proc finishCall(p: var Parser, callee: LxExpr): LxExpr =
+    var args: seq[LxExpr] = @[]
+
+    if check(p, tkRightParen) == false:
+        while true:
+            args.add(expression(p))
+
+            if args.len > 255:
+                error(peek(p), "cannot have more than 255 arguments.")
+                raise newException(LoxParseError, "cannot have more than 255 arguments.")
+
+            if match(p, tkComma) == false:
+                break
+
+    let paren = consume(p, tkRightParen, "expect ')' after arguments.")
+
+    LxExpr(kind: ekCall, call: CallExpr(callee: callee, paren: paren, args: args))
+
+proc call(p: var Parser): LxExpr =
+    var lexpr = primary(p)
+
+    while true:
+        if match(p, tkLeftParen):
+            lexpr = finishCall(p, lexpr)
+        else:
+            break
+
+    lexpr
+
+
 proc unary(p: var Parser): LxExpr =
     if match(p, tkBang, tkMinus):
         let op = previous(p)
         let right = unary(p)
         return LxExpr(kind: ekUnary, unary: UnaryExpr(op: op, right: right))
 
-    primary(p)
+    call(p)
 
 
 proc factor(p: var Parser): LxExpr =
@@ -300,9 +326,35 @@ proc varDeclaration(p: var Parser): LStmt =
     discard consume(p, tkSemicolon, "expect ';' after variable declaration.")
     return LStmt(kind: skVar, varstmt: VarStmt(name: name, init: initializer))
 
+proc functionStmt(p: var Parser, kind: string): LStmt =
+    let name = consume(p, tkIdentifier, "expect " & kind & " name.")
+    discard consume(p, tkLeftParen, "expect '(' after " & kind & " name.")
+    var params: seq[Token] = @[]
+    if check(p, tkRightParen) == false:
+        while true:
+            if params.len >= 255:
+                error(peek(p), "cannot have more than 255 parameters.")
+                raise newException(LoxParseError, "cannot have more than 255 parameters.")
+
+            params.add(consume(p, tkIdentifier, "expect parameter name."))
+
+            if match(p, tkComma) == false:
+                break
+
+    discard consume(p, tkRightParen, "expect ')' after parameters.")
+
+    discard consume(p, tkLeftBrace, "expect '{' before " & kind & " body.")
+    let body = blockStmt(p)
+
+    LStmt(kind: skFunc, funcstmt: FuncStmt(name: name, params: params,
+            body: body.blockstmt.stmts))
+
+
 proc declaration(p: var Parser): LStmt =
     try:
-        if match(p, tkVar):
+        if match(p, tkFun):
+            return functionStmt(p, "function")
+        elif match(p, tkVar):
             return varDeclaration(p)
         return statement(p)
     except LoxParseError:

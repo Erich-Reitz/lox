@@ -1,14 +1,10 @@
 import std/strutils
 import std/tables
 
-
-
 import lexutils
 import scanner
 import status
-import token
-import tokenType
-import value
+import types
 
 func valueToken(typ: TokenType, lexeme: string, lit: Value,
         line: int): Token =

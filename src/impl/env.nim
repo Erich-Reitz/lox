@@ -1,13 +1,6 @@
 import std/tables
 
-import lexceptions
-import token
-import value
-
-type
-    Env* = ref object of RootObj
-        enclosing*: Env
-        values*: Table[string, Value]
+import types
 
 
 func initEnv*(enclosing: Env): Env =

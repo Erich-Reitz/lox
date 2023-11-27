@@ -1,13 +1,8 @@
 import math
 
-type
-    ValueKind* = enum lkBool, lkNum, lkString, lkIden
 
-    Value* = ref object
-        case kind*: ValueKind
-        of lkBool: boolVal*: bool
-        of lkString, lkIden: strVal*: string
-        of lkNum: numVal*: float
+import types
+
 
 func isInteger(value: float, epsilon: float = 1e-10): bool =
     return abs(ceil(value) - value) < epsilon or abs(floor(value) - value) < epsilon
@@ -23,7 +18,7 @@ func `$`*(v: Value): string =
     of lkBool: result = if v.boolVal == true: "true" else: "false"
     of lkString, lkIden: result = v.strVal
     of lkNum: result = loxRepr(v.numVal)
-
+    of lkFunction: result = "<fn>"
 
 
 func isTruthy*(obj: Value): bool =
@@ -53,6 +48,11 @@ proc isEqual(a: Value, b: Value): bool =
         of lkIden:
             echo "Warning: Comparing two identifiers"
             return a.strVal == b.strVal
+        of lkFunction:
+            # comparing the references
+            return a.funcVal == b.funcVal
+
+
 
 
 

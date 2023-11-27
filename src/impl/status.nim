@@ -1,6 +1,4 @@
-import lexceptions
-import token
-import tokenType
+import types
 
 var hadError* = false
 var hadRuntimeError* = false

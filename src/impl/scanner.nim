@@ -1,7 +1,6 @@
 import std/tables
 
-import token
-import tokenType
+import types
 
 type Scanner* = object
     source*: string
