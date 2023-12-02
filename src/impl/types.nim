@@ -1,3 +1,4 @@
+import std/hashes
 import std/tables
 type
 
@@ -39,9 +40,19 @@ type
         lexeme*: string
         line*: int
 
-    Interpreter* = object
+    FunctionType* = enum
+        ftNone,
+        ftFunction
+
+    Resolver* = ref object
+        interpreter*: Interpreter
+        scopes*: seq[Table[string, bool]]
+        curfunction*: FunctionType
+
+    Interpreter* = ref object
         globals*: Env
         environment*: Env
+        expLocals*: Table[LxExpr, int]
 
     Env* = ref object of RootObj
         enclosing*: Env
@@ -165,5 +176,43 @@ type
             funcstmt*: FuncStmt
         of skReturn:
             returnstmt*: ReturnStmt
+
+proc hash(t: LoxCallable): Hash =
+    hash(t.arity) xor hash(t.call)
+
+proc hash(t: Value): Hash =
+    case t.kind
+    of lkBool:
+        hash(t.boolVal)
+    of lkString, lkIden:
+        hash(t.strVal)
+    of lkNum:
+        hash(t.numVal)
+    of lkFunction:
+        hash(t.funcVal)
+
+
+proc hash*(x: LxExpr): Hash =
+    case x.kind
+    of ekBinary:
+        hash(x.bin.left) xor hash(x.bin.right)
+    of ekGrouping:
+        hash(x.group.lexpr)
+    of ekValue:
+        hash(x.val.val)
+    of ekUnary:
+        hash(x.unary.right)
+    of ekVar:
+        hash(x.varex.name)
+    of ekAssign:
+        hash(x.assign.name)
+    of ekLogical:
+        hash(x.logical.left) xor hash(x.logical.right)
+    of ekCall:
+        hash(x.call.callee) xor hash(x.call.paren) xor hash(x.call.args)
+
+proc hash(t: Token): Hash =
+    hash(t.typ) xor hash(t.value) xor hash(t.lexeme) xor hash(t.line)
+
 
 

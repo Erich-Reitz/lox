@@ -2,15 +2,17 @@ import builtins
 import env
 import status
 import value
+import resolver
 import types
+
+import std/tables
 
 # function protoypes
 proc evaluate(exp: ValExpr, inter: var Interpreter): Value
 proc evaluate(exp: GroupingExpr, inter: var Interpreter): Value
 proc evaluate(exp: UnaryExpr, inter: var Interpreter): Value
 proc evaluate(exp: BinExpr, inter: var Interpreter): Value
-proc evaluate(exp: VarExpr, inter: var Interpreter): Value
-proc evaluate(exp: AssignExpr, inter: var Interpreter): Value
+proc evaluateAssignmentExpr(exp: LxExpr, inter: var Interpreter): Value
 proc evaluate(exp: LogicalExpr, inter: var Interpreter): Value
 proc evaluate(exp: CallExpr, inter: var Interpreter): Value
 proc execute(s: LStmt, inter: var Interpreter)
@@ -55,6 +57,12 @@ proc checkNumberOperands(op: Token, left: Value, right: Value) =
     exception.token = op
     raise exception
 
+proc lookupVariable(name: Token, exp: LxExpr, inter: var Interpreter): Value =
+    if contains(inter.expLocals, exp):
+        let distance = inter.expLocals[exp]
+        return inter.environment.getAt(distance, name.lexeme)
+    else:
+        return inter.globals.get(name)
 
 proc evaluate(exp: LxExpr, inter: var Interpreter): Value =
     case exp.kind:
@@ -68,18 +76,18 @@ proc evaluate(exp: LxExpr, inter: var Interpreter): Value =
             evaluate(exp.bin, inter)
         of ekVar:
             # TODO: check on the compilier error message if this is exp.varexp, matching the type of the field.
-            # may be able to improve the error message
-            evaluate(exp.varex, inter)
+            # may be able to improve the error message.<= changed my code since, may not make sense anymore
+            lookupVariable(exp.varex.name, exp, inter)
         of ekAssign:
-            evaluate(exp.assign, inter)
+            evaluateAssignmentExpr(exp, inter)
         of ekLogical:
             evaluate(exp.logical, inter)
         of ekCall:
             evaluate(exp.call, inter)
 
 
-proc evaluate(exp: VarExpr, inter: var Interpreter): Value =
-    inter.environment.get(exp.name)
+
+
 
 proc evaluate(exp: ValExpr, inter: var Interpreter): Value =
     exp.val
@@ -140,9 +148,17 @@ proc evaluate(exp: BinExpr, inter: var Interpreter): Value =
             raise newException(Exception, "Invalid binary operator")
 
 
-proc evaluate(exp: AssignExpr, inter: var Interpreter): Value =
-    let value = evaluate(exp.value, inter)
-    inter.environment.assign(exp.name, value)
+proc evaluateAssignmentExpr(exp: LxExpr, inter: var Interpreter): Value =
+    assert exp.kind == ekAssign
+    let value = evaluate(exp.assign.value, inter)
+
+    if contains(inter.expLocals, exp):
+        let distance = inter.expLocals[exp]
+        inter.environment.assignAt(distance, exp.assign.name, value)
+    else:
+        inter.globals.assign(exp.assign.name, value)
+
+
 
     return value
 
@@ -259,13 +275,22 @@ proc execute(s: LStmt, inter: var Interpreter) =
 
 
 proc interpret*(stmts: seq[LStmt]) =
-    var interpreter = Interpreter()
-    interpreter.globals = initEnv(nil)
-    interpreter.globals.define("clock", clockBuiltin)
-    interpreter.environment = interpreter.globals
+    var i = Interpreter()
+
+    var resolver = Resolver(interpreter: i, scopes: newSeq[Table[string, bool]](
+        ), curfunction: ftNone)
+
+    resolver.resolve(stmts)
+
+    if hadError:
+        return
+
+    i.globals = initEnv(nil)
+    i.globals.define("clock", clockBuiltin)
+    i.environment = i.globals
     try:
         for lstmt in stmts:
-            execute(lstmt, interpreter)
+            execute(lstmt, i)
     except LoxRuntimeError as e:
         runtimeError(e)
 

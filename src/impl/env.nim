@@ -24,7 +24,16 @@ func get*(env: Env, name: Token): Value =
     exception.token = name
     raise exception
 
-func assign*(env: Env, name: Token, value: Value) =
+proc ancestor*(env: Env, distance: int): Env =
+    var current = env
+    for i in 0..<distance:
+        current = current.enclosing
+    return current
+
+proc getAt*(env: Env, distance: int, name: string): Value =
+    return ancestor(env, distance).values[name]
+
+proc assign*(env: Env, name: Token, value: Value) =
     if env.values.hasKey(name.lexeme):
         env.values[name.lexeme] = value
         return
@@ -39,4 +48,5 @@ func assign*(env: Env, name: Token, value: Value) =
     raise exception
 
 
-
+proc assignAt*(env: Env, distance: int, name: Token, value: Value) =
+    ancestor(env, distance).values[name.lexeme] = value
