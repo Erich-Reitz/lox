@@ -19,6 +19,8 @@ func `$`*(v: Value): string =
     of lkString, lkIden: result = v.strVal
     of lkNum: result = loxRepr(v.numVal)
     of lkFunction: result = "<fn>"
+    of lkClass: result = v.classVal.name
+    of lkInstance: result = v.instanceVal.class.name & " instance"
 
 
 func isTruthy*(obj: Value): bool =
@@ -51,6 +53,12 @@ proc isEqual(a: Value, b: Value): bool =
         of lkFunction:
             # comparing the references
             return a.funcVal == b.funcVal
+        of lkClass:
+            # comparing the references
+            return a.classVal == b.classVal
+        of lkInstance:
+            # comparing the references
+            return a.instanceVal == b.instanceVal
 
 
 

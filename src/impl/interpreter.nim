@@ -15,6 +15,7 @@ proc evaluate(exp: BinExpr, inter: var Interpreter): Value
 proc evaluateAssignmentExpr(exp: LxExpr, inter: var Interpreter): Value
 proc evaluate(exp: LogicalExpr, inter: var Interpreter): Value
 proc evaluate(exp: CallExpr, inter: var Interpreter): Value
+proc evaluate(exp: GetExpr, inter: var Interpreter): Value
 proc execute(s: LStmt, inter: var Interpreter)
 proc executeBlock*(stmts: seq[LStmt], inter: var Interpreter, newEnv: Env)
 
@@ -64,6 +65,8 @@ proc lookupVariable(name: Token, exp: LxExpr, inter: var Interpreter): Value =
     else:
         return inter.globals.get(name)
 
+
+
 proc evaluate(exp: LxExpr, inter: var Interpreter): Value =
     case exp.kind:
         of ekValue:
@@ -84,10 +87,19 @@ proc evaluate(exp: LxExpr, inter: var Interpreter): Value =
             evaluate(exp.logical, inter)
         of ekCall:
             evaluate(exp.call, inter)
+        of ekGet:
+            evaluate(exp.exget, inter)
 
 
 
+proc evaluate(exp: GetExpr, inter: var Interpreter): Value =
+    let obj = evaluate(exp.obj, inter)
+    if obj.kind == lkInstance:
+        return get(obj.instanceVal, exp.name)
 
+    var exception = newException(LoxInvalidCast, "Only instances have properties.")
+    exception.token = exp.name
+    raise exception
 
 proc evaluate(exp: ValExpr, inter: var Interpreter): Value =
     exp.val
@@ -182,13 +194,21 @@ proc evaluate(exp: CallExpr, inter: var Interpreter): Value =
     for arg in exp.args:
         arguments.add(evaluate(arg, inter))
 
-    if callee.kind != lkFunction:
+    if callee.kind != lkFunction and callee.kind != lkClass:
         var exception = newException(LoxInvalidCast, "Can only call functions and classes.")
         exception.token = exp.paren
         raise exception
 
-    let function = callee.funcVal
 
+
+
+    var function: LoxCallable = nil 
+    if callee.kind == lkFunction:
+        function = callee.funcVal
+    else:
+        function = callee.classval
+
+    
     if arguments.len != function.arity:
         var exception = newException(LoxInvalidCast, "Expected " &
                 $function.arity & " arguments but got " & $arguments.len & ".")
@@ -254,6 +274,17 @@ proc execute(s: ReturnStmt, inter: var Interpreter) =
     raise ret
 
 
+proc execute(c: ClassStmt, inter: var Interpreter) =
+    inter.environment.define(c.name.lexeme, nil)
+    let klass = LoxClass(name: c.name.lexeme)
+    klass.call = proc(inter: var Interpreter, args: seq[Value]): Value =
+        let instance = LoxInstance(class: klass)
+        return Value(kind: lkInstance, instanceVal: instance)
+
+
+    inter.environment.assign(c.name, Value(kind: lkClass, classVal: klass))
+
+
 proc execute(s: LStmt, inter: var Interpreter) =
     case s.kind:
     of skPrint:
@@ -272,7 +303,8 @@ proc execute(s: LStmt, inter: var Interpreter) =
         execute(s.funcstmt, inter)
     of skReturn:
         execute(s.returnstmt, inter)
-
+    of skClass:
+        execute(s.classstmt, inter)
 
 proc interpret*(stmts: seq[LStmt]) =
     var i = Interpreter()

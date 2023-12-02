@@ -122,6 +122,11 @@ proc visitReturnStmt(r: var Resolver, s: ReturnStmt) =
 proc visitPrintStmt(r: var Resolver, s: PrintStmt) =
     resolve(r, s.exp)
 
+proc visitClassStmt(r: var Resolver, s: ClassStmt) =
+    declare(r, s.name)
+    define(r, s.name)
+
+
 proc visitBinaryExpr(r: var Resolver, exp: BinExpr) =
     resolve(r, exp.left)
     resolve(r, exp.right)
@@ -143,7 +148,8 @@ proc visitLogicalExpr(r: var Resolver, exp: LogicalExpr) =
 proc visitUnaryExpr(r: var Resolver, exp: UnaryExpr) =
     resolve(r, exp.right)
 
-
+proc visitGetExpr(r: var Resolver, exp: GetExpr) =
+    resolve(r, exp.obj)
 
 proc resolve(r: var Resolver, exp: LxExpr) =
     case exp.kind:
@@ -155,9 +161,7 @@ proc resolve(r: var Resolver, exp: LxExpr) =
     of ekLogical: visitLogicalExpr(r, exp.logical)
     of ekUnary: visitUnaryExpr(r, exp.unary)
     of ekVar: visitVarExpr(r, exp.varex, exp)
-
-
-
+    of ekGet: visitGetExpr(r, exp.exget)
 
 
 proc resolve(r: var Resolver, s: LStmt) =
@@ -170,6 +174,7 @@ proc resolve(r: var Resolver, s: LStmt) =
     of skFunc: visitFunctionStmt(r, s.funcstmt)
     of skVar: visitVarStmt(r, s.varstmt)
     of skBlock: visitBlockStmt(r, s.blockstmt)
+    of skClass: visitClassStmt(r, s.classstmt)
 
 proc resolve*(r: var Resolver, s: seq[LStmt]) =
     for stm in s:

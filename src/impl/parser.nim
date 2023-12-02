@@ -120,6 +120,9 @@ proc call(p: var Parser): LxExpr =
     while true:
         if match(p, tkLeftParen):
             lexpr = finishCall(p, lexpr)
+        elif match(p, tkDot):
+            let name = consume(p, tkIdentifier, "expect property name after '.'.")
+            lexpr = LxExpr(kind: ekGet, exget: GetExpr(obj: lexpr, name: name))
         else:
             break
 
@@ -360,9 +363,21 @@ proc functionStmt(p: var Parser, kind: string): LStmt =
     LStmt(kind: skFunc, funcstmt: FuncStmt(name: name, params: params,
             body: body.blockstmt.stmts))
 
+proc classDeclaration(p: var Parser): LStmt =
+    let name = consume(p, tkIdentifier, "expect class name.")
+    discard consume(p, tkLeftBrace, "expect '{' before class body.")
+
+    var methods: seq[LStmt] = @[]
+    while check(p, tkRightBrace) == false:
+        methods.add(functionStmt(p, "method"))
+    
+    discard consume(p, tkRightBrace, "expect '}' after class body.")
+    LStmt(kind: skClass, classstmt: ClassStmt(name: name, methods: methods))
 
 proc declaration(p: var Parser): LStmt =
     try:
+        if match(p, tkClass):
+            return classDeclaration(p)
         if match(p, tkFun):
             return functionStmt(p, "function")
         elif match(p, tkVar):

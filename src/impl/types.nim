@@ -1,6 +1,12 @@
 import std/hashes
 import std/tables
+
 type
+    Token* = object
+        typ*: TokenType
+        value*: Value
+        lexeme*: string
+        line*: int
 
     LoxRuntimeError* = ref object of CatchableError
         token*: Token
@@ -8,6 +14,9 @@ type
     LoxInvalidCast* = object of LoxRuntimeError
 
     LoxUndefinedVariable* = object of LoxRuntimeError
+
+    LoxUndefinedProperty* = object of LoxRuntimeError
+
 
     LoxParseError* = object of CatchableError
 
@@ -34,11 +43,6 @@ type
         tkEOF
 
 
-    Token* = object
-        typ*: TokenType
-        value*: Value
-        lexeme*: string
-        line*: int
 
     FunctionType* = enum
         ftNone,
@@ -66,9 +70,19 @@ type
         declaration*: FuncStmt
         closure*: Env
 
+    LoxClass* = ref object  of LoxCallable
+        name*: string
+
+    LoxInstance* =  object
+        class*: LoxClass
+        fields*: Table[string, Value]
 
 
-    ValueKind* = enum lkBool, lkNum, lkString, lkIden, lkFunction
+
+
+
+
+    ValueKind* = enum lkBool, lkNum, lkString, lkIden, lkFunction, lkClass, lkInstance
 
     Value* = ref object of RootObj
         case kind*: ValueKind
@@ -76,10 +90,12 @@ type
         of lkString, lkIden: strVal*: string
         of lkNum: numVal*: float
         of lkFunction: funcVal*: LoxCallable
+        of lkClass: classVal*: LoxClass
+        of lkInstance: instanceVal*: LoxInstance
 
 
     ExprKind* = enum ekBinary, ekGrouping, ekValue, ekUnary, ekVar, ekAssign,
-        ekLogical, ekCall
+        ekLogical, ekCall, ekGet
 
     BinExpr* = object
         left*: LxExpr
@@ -113,6 +129,10 @@ type
         paren*: Token
         args*: seq[LxExpr]
 
+    GetExpr* = object
+        obj*: LxExpr
+        name*: Token
+
     LxExpr* = ref object
         case kind*: ExprKind
         of ekBinary: bin*: BinExpr
@@ -123,9 +143,10 @@ type
         of ekAssign: assign*: AssignExpr
         of ekLogical: logical*: LogicalExpr
         of ekCall: call*: CallExpr
+        of ekGet: exget*: GetExpr
 
 
-    StmtKind* = enum skPrint, skExpr, skVar, skBlock, skIf, skWhile, skFunc, skReturn
+    StmtKind* = enum skClass, skPrint, skExpr, skVar, skBlock, skIf, skWhile, skFunc, skReturn
 
     ExprStmt* = object
         exp*: LxExpr
@@ -158,6 +179,11 @@ type
         keyword*: Token
         value*: LxExpr
 
+    ClassStmt* = object 
+        name*: Token
+        # LStmt should all be of type skFunc
+        methods*: seq[LStmt]
+
     LStmt* = ref object
         case kind*: StmtKind
         of skPrint:
@@ -176,6 +202,22 @@ type
             funcstmt*: FuncStmt
         of skReturn:
             returnstmt*: ReturnStmt
+        of skClass:
+            classstmt*: ClassStmt
+
+
+
+proc get*(instance: LoxInstance, name: Token): Value =
+    if instance.fields.contains(name.lexeme):
+        return instance.fields[name.lexeme]
+    
+    let msg = "Undefined property '" & name.lexeme & "'."
+
+    var exception = newException(LoxUndefinedProperty, msg)
+    exception.token = name
+    raise exception
+
+
 
 proc hash(t: LoxCallable): Hash =
     hash(t.arity) xor hash(t.call)
@@ -190,6 +232,10 @@ proc hash(t: Value): Hash =
         hash(t.numVal)
     of lkFunction:
         hash(t.funcVal)
+    of lkClass:
+        hash(t.classVal.name)
+    of lkInstance:
+        hash(t.instanceVal.class.name)
 
 
 proc hash*(x: LxExpr): Hash =
@@ -210,9 +256,5 @@ proc hash*(x: LxExpr): Hash =
         hash(x.logical.left) xor hash(x.logical.right)
     of ekCall:
         hash(x.call.callee) xor hash(x.call.paren) xor hash(x.call.args)
-
-proc hash(t: Token): Hash =
-    hash(t.typ) xor hash(t.value) xor hash(t.lexeme) xor hash(t.line)
-
-
-
+    of ekGet:
+        hash(x.exget.obj) xor hash(x.exget.name)
