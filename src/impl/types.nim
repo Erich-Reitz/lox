@@ -42,16 +42,22 @@ type
 
         tkEOF
 
-
-
     FunctionType* = enum
         ftNone,
-        ftFunction
+        ftFunction,
+        ftMethod,
+        ftInitializer
+
+    ClassType* = enum
+        ctNone,
+        ctClass,
+        ctSubclass
 
     Resolver* = ref object
         interpreter*: Interpreter
         scopes*: seq[Table[string, bool]]
         curfunction*: FunctionType
+        curclass*: ClassType
 
     Interpreter* = ref object
         globals*: Env
@@ -63,17 +69,20 @@ type
         values*: Table[string, Value]
 
     LoxCallable* = ref object of RootObj
-        arity*: int
+        arity*: proc (): int
         call*: proc(inter: var Interpreter, args: seq[Value]): Value
 
     LoxFunction* = ref object of LoxCallable
         declaration*: FuncStmt
         closure*: Env
+        isInitializer*: bool
 
-    LoxClass* = ref object  of LoxCallable
+    LoxClass* = ref object of LoxCallable
         name*: string
+        methods*: Table[string, LoxFunction]
+        superclass*: LoxClass
 
-    LoxInstance* =  object
+    LoxInstance* = object
         class*: LoxClass
         fields*: Table[string, Value]
 
@@ -95,7 +104,7 @@ type
 
 
     ExprKind* = enum ekBinary, ekGrouping, ekValue, ekUnary, ekVar, ekAssign,
-        ekLogical, ekCall, ekGet
+        ekLogical, ekCall, ekGet, ekSet, ekThis, ekSuper
 
     BinExpr* = object
         left*: LxExpr
@@ -133,6 +142,18 @@ type
         obj*: LxExpr
         name*: Token
 
+    SetExpr* = object
+        obj*: LxExpr
+        name*: Token
+        value*: LxExpr
+
+    ThisExpr* = object
+        keyword*: Token
+
+    SuperExpr* = object
+        keyword*: Token
+        methd*: Token
+
     LxExpr* = ref object
         case kind*: ExprKind
         of ekBinary: bin*: BinExpr
@@ -144,9 +165,13 @@ type
         of ekLogical: logical*: LogicalExpr
         of ekCall: call*: CallExpr
         of ekGet: exget*: GetExpr
+        of ekSet: exset*: SetExpr
+        of ekThis: exthis*: ThisExpr
+        of ekSuper: exsuper*: SuperExpr
 
 
-    StmtKind* = enum skClass, skPrint, skExpr, skVar, skBlock, skIf, skWhile, skFunc, skReturn
+    StmtKind* = enum skClass, skPrint, skExpr, skVar, skBlock, skIf, skWhile,
+        skFunc, skReturn
 
     ExprStmt* = object
         exp*: LxExpr
@@ -179,10 +204,12 @@ type
         keyword*: Token
         value*: LxExpr
 
-    ClassStmt* = object 
+    ClassStmt* = object
         name*: Token
         # LStmt should all be of type skFunc
         methods*: seq[LStmt]
+        # should be of type LxVar
+        superclass*: LxExpr
 
     LStmt* = ref object
         case kind*: StmtKind
@@ -206,16 +233,16 @@ type
             classstmt*: ClassStmt
 
 
+proc findMethod*(klass: LoxClass, name: string): LoxFunction =
+    if klass.methods.contains(name):
+        return klass.methods[name]
 
-proc get*(instance: LoxInstance, name: Token): Value =
-    if instance.fields.contains(name.lexeme):
-        return instance.fields[name.lexeme]
-    
-    let msg = "Undefined property '" & name.lexeme & "'."
+    if klass.superclass != nil:
+        return findMethod(klass.superclass, name)
 
-    var exception = newException(LoxUndefinedProperty, msg)
-    exception.token = name
-    raise exception
+    return nil
+
+
 
 
 
@@ -258,3 +285,11 @@ proc hash*(x: LxExpr): Hash =
         hash(x.call.callee) xor hash(x.call.paren) xor hash(x.call.args)
     of ekGet:
         hash(x.exget.obj) xor hash(x.exget.name)
+    of ekSet:
+        hash(x.exset.obj) xor hash(x.exset.name) xor hash(x.exset.value)
+    of ekThis:
+        hash(x.exthis.keyword)
+    of ekSuper:
+        hash(x.exsuper.keyword) xor hash(x.exsuper.methd)
+
+

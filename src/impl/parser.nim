@@ -91,6 +91,14 @@ proc primary(p: var Parser): LxExpr =
         let lexpr = expression(p)
         discard consume(p, tkRightParen, "expect ')' after expression.")
         return LxExpr(kind: ekGrouping, group: GroupingExpr(lexpr: lexpr))
+    elif match(p, tkThis):
+        return LxExpr(kind: ekThis, exthis: ThisExpr(keyword: previous(p)))
+    elif match(p, tkSuper):
+        let keyword = previous(p)
+        discard consume(p, tkDot, "expect '.' after 'super'.")
+        let methd = consume(p, tkIdentifier, "expect superclass method name.")
+        return LxExpr(kind: ekSuper, exsuper: SuperExpr(keyword: keyword,
+                methd: methd))
     else:
         error(peek(p), "expect expression.")
         raise newException(LoxParseError, "expect expression.")
@@ -210,6 +218,10 @@ proc assignment(p: var Parser): LxExpr =
         if lexpr.kind == ekVar:
             let name = lexpr.varex.name
             return LxExpr(kind: ekAssign, assign: AssignExpr(name: name, value: value))
+        elif lexpr.kind == ekGet:
+            let setexpr = SetExpr(obj: lexpr.exget.obj, name: lexpr.exget.name,
+                    value: value)
+            return LxExpr(kind: ekSet, exset: setexpr)
 
         error(equals, "invalid assignment target.")
 
@@ -365,14 +377,22 @@ proc functionStmt(p: var Parser, kind: string): LStmt =
 
 proc classDeclaration(p: var Parser): LStmt =
     let name = consume(p, tkIdentifier, "expect class name.")
+
+    var superclass: LxExpr = nil
+    if match(p, tkLess):
+        discard consume(p, tkIdentifier, "expect superclass name.")
+        superclass = LxExpr(kind: ekVar, varex: VarExpr(name: previous(p)))
+
     discard consume(p, tkLeftBrace, "expect '{' before class body.")
 
     var methods: seq[LStmt] = @[]
     while check(p, tkRightBrace) == false:
-        methods.add(functionStmt(p, "method"))
-    
+        let funstmt = functionStmt(p, "method")
+        methods.add(funstmt)
+
     discard consume(p, tkRightBrace, "expect '}' after class body.")
-    LStmt(kind: skClass, classstmt: ClassStmt(name: name, methods: methods))
+    LStmt(kind: skClass, classstmt: ClassStmt(name: name, methods: methods,
+            superclass: superclass))
 
 proc declaration(p: var Parser): LStmt =
     try:

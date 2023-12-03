@@ -117,15 +117,47 @@ proc visitReturnStmt(r: var Resolver, s: ReturnStmt) =
         error(s.keyword, "Cannot return from top-level code.")
 
     if s.value != nil:
+        if r.curfunction == ftInitializer:
+            error(s.keyword, "Cannot return a value from an initializer.")
+
         resolve(r, s.value)
 
 proc visitPrintStmt(r: var Resolver, s: PrintStmt) =
     resolve(r, s.exp)
 
 proc visitClassStmt(r: var Resolver, s: ClassStmt) =
+    let enclosingClass = r.curclass
+    r.curclass = ctClass
     declare(r, s.name)
-    define(r, s.name)
 
+    if s.superclass != nil and s.name.lexeme == s.superclass.varex.name.lexeme:
+        error(s.superclass.varex.name, "A class cannot inherit from itself.")
+
+    if s.superclass != nil:
+        r.curclass = ctSubclass
+        resolve(r, s.superclass)
+
+    if s.superclass != nil:
+        beginScope(r)
+        r.scopes[r.scopes.len - 1]["super"] = true
+
+    beginScope(r)
+    r.scopes[r.scopes.len - 1]["this"] = true
+    for methd in s.methods:
+        assert methd.kind == skFunc
+        var typ = ftMethod
+        if methd.funcstmt.name.lexeme == "init":
+            typ = ftInitializer
+
+        resolveFunction(r, methd.funcstmt, typ)
+
+
+    define(r, s.name)
+    endScope(r)
+    if s.superclass != nil:
+        endScope(r)
+
+    r.curclass = enclosingClass
 
 proc visitBinaryExpr(r: var Resolver, exp: BinExpr) =
     resolve(r, exp.left)
@@ -151,6 +183,25 @@ proc visitUnaryExpr(r: var Resolver, exp: UnaryExpr) =
 proc visitGetExpr(r: var Resolver, exp: GetExpr) =
     resolve(r, exp.obj)
 
+proc visitSetExpr(r: var Resolver, exp: SetExpr) =
+    resolve(r, exp.value)
+    resolve(r, exp.obj)
+
+proc visitThisExpr(r: var Resolver, parentExpr: LxExpr, exp: ThisExpr) =
+    if r.curclass == ctNone:
+        error(exp.keyword, "Cannot use 'this' outside of a class.")
+
+    resolveLocal(r, parentExpr, exp.keyword)
+
+
+proc visitSuperExpr(r: var Resolver, parentExpr: LxExpr, exp: SuperExpr) =
+    if r.curclass == ctNone:
+        error(exp.keyword, "Cannot use 'super' outside of a class.")
+    elif r.curclass != ctSubclass:
+        error(exp.keyword, "Cannot use 'super' in a class with no superclass.")
+
+    resolveLocal(r, parentExpr, exp.keyword)
+
 proc resolve(r: var Resolver, exp: LxExpr) =
     case exp.kind:
     of ekAssign: visitAssignExpr(r, exp.assign, exp)
@@ -162,6 +213,9 @@ proc resolve(r: var Resolver, exp: LxExpr) =
     of ekUnary: visitUnaryExpr(r, exp.unary)
     of ekVar: visitVarExpr(r, exp.varex, exp)
     of ekGet: visitGetExpr(r, exp.exget)
+    of ekSet: visitSetExpr(r, exp.exset)
+    of ekThis: visitThisExpr(r, exp, exp.exthis)
+    of ekSuper: visitSuperExpr(r, exp, exp.exsuper)
 
 
 proc resolve(r: var Resolver, s: LStmt) =
