@@ -262,8 +262,7 @@ proc evaluateSuperExpr(exp: LxExpr, inter: var Interpreter): Value =
     let mthd = superclass.findMethod(exp.exsuper.methd.lexeme)
 
     if mthd == nil:
-        var exception = newException(LoxUndefinedProperty,
-                "Undefined property '" &exp.exsuper.methd.lexeme & "'.")
+        var exception = newException(LoxUndefinedProperty, "Undefined property '" & exp.exsuper.methd.lexeme & "'.")
         exception.token = exp.exsuper.methd
         raise exception
 
