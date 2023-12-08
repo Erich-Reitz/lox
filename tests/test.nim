@@ -154,3 +154,18 @@ suite "integration tests":
 
   test "this_this_in_method":
     check runTest("this_this_in_method")
+  
+  test "this_closure":
+    check runTest("this_closure")
+  
+  test "this_nested_class":
+    check runTest("this_nested_class")
+
+  test "this_nested_closure":
+    check runTest("this_nested_closure")
+
+  test "this_this_at_top_level":
+    check runTest("this_this_at_top_level", expectsError = true)
+
+  test "this_this_in_top_level_function":
+    check runTest("this_this_in_top_level_function", expectsError = true)
