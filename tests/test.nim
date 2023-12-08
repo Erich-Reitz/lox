@@ -121,3 +121,6 @@ suite "integration tests":
 
   test "function_nested_call_with_arguments":
     check runTest("function_nested_call_with_arguments")
+  
+  test "for_syntax":
+    check runTest("for_syntax")
