@@ -178,3 +178,21 @@ suite "integration tests":
 
   test "inheritance_inherit_fields":
     check runTest("inheritance_inherit_fields")
+
+  test "if_if_truth":
+    check runTest("if_if_truth")
+
+  test "if_if":
+    check runTest("if_if")
+
+  test "return_return_after_if":
+    check runTest("return_return_after_if")
+
+  test "return_return_after_else":
+    check runTest("return_return_after_else")
+
+  test "return_return_after_while":
+    check runTest("return_return_after_while")
+
+  test "return_in_method":
+    check runTest("return_in_method")
