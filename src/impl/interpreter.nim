@@ -321,7 +321,11 @@ proc visitExprStmt(s: ExprStmt, inter: var Interpreter) =
 
 proc visitPrintStmt(s: PrintStmt, inter: var Interpreter) =
     let v = evaluate(s.exp, inter)
-    echo v
+    # TODO: why 
+    if v.isNil:
+        echo "nil"
+    else:
+        echo v
 
 proc execute(s: VarStmt, inter: var Interpreter) =
     var value: Value = nil

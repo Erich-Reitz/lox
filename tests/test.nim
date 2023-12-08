@@ -81,3 +81,12 @@ suite "integration tests":
 
   test "constructor_arguments":
     check runTest("constructor_arguments")
+
+  test "constructor_call_init_early_return":
+    check runTest("constructor_call_init_early_return")
+
+  test "constructor_return_value":
+    check runTest("constructor_return_value", expectsError = true)
+
+  test "logical_op_and_truth":
+    check runTest("logical_op_and_truth")
