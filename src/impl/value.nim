@@ -37,6 +37,9 @@ proc isEqual(a: Value, b: Value): bool =
     if a == nil:
         return false
 
+    if b == nil:
+        return false
+
     if a.kind != b.kind:
         return false
 

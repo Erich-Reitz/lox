@@ -196,3 +196,23 @@ suite "integration tests":
 
   test "return_in_method":
     check runTest("return_in_method")
+
+  test "variable_scope_reuse_in_different_blocks":
+    check runTest("variable_scope_reuse_in_different_blocks")
+
+  test "operator_add":
+    check runTest("operator_add")
+
+  test "operator_comparison":
+    check runTest("operator_comparison") 
+  
+  test "operator_divide":
+    check runTest("operator_divide")
+  
+  test "operator_equals":
+    check runTest("operator_equals")
+  
+  test "operator_equals_class":
+    check runTest("operator_equals_class")
+  
+  
