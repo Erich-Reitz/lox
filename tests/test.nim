@@ -90,3 +90,21 @@ suite "integration tests":
 
   test "logical_op_and_truth":
     check runTest("logical_op_and_truth")
+
+  test "logical_op_or":
+    check runTest("logical_op_or")
+  
+  test "logical_op_and":
+    check runTest("logical_op_and")
+  
+  test "while_closure_in_body":
+    check runTest("while_closure_in_body")
+
+  test "while_return_closure":
+    check runTest("while_return_closure")
+
+  test "while_syntax":
+    check runTest("while_syntax")
+
+  test "super_constructor":
+    check runTest("super_constructor")
