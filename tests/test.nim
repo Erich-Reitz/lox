@@ -215,4 +215,29 @@ suite "integration tests":
   test "operator_equals_class":
     check runTest("operator_equals_class")
   
+  test "operator_equals_method":
+    check runTest("operator_equals_method")
   
+  test "operator_multiply":
+    check runTest("operator_multiply")
+
+  test "operator_negate":
+    check runTest("operator_negate")
+
+  test "operator_not":
+    check runTest("operator_not")
+
+  test "operator_not_class":
+    check runTest("operator_not_class")
+
+  test "operator_not_equals":
+    check runTest("operator_not_equals")
+
+  test "operator_subtract":
+    check runTest("operator_subtract")
+
+  test "function_parameters":
+    check runTest("function_parameters")
+
+  test "function_recursion":
+    check runTest("function_recursion")
