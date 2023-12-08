@@ -169,3 +169,12 @@ suite "integration tests":
 
   test "this_this_in_top_level_function":
     check runTest("this_this_in_top_level_function", expectsError = true)
+
+  test "inheritance_constructor":
+    check runTest("inheritance_constructor")
+
+  test "inheritance_inherit_methods":
+    check runTest("inheritance_inherit_methods")
+
+  test "inheritance_inherit_fields":
+    check runTest("inheritance_inherit_fields")
