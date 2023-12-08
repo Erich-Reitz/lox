@@ -371,7 +371,7 @@ proc functionStmt(p: var Parser, kind: string): LStmt =
 
     discard consume(p, tkLeftBrace, "expect '{' before " & kind & " body.")
     let body = blockStmt(p)
-
+    
     LStmt(kind: skFunc, funcstmt: FuncStmt(name: name, params: params,
             body: body.blockstmt.stmts))
 

@@ -129,6 +129,7 @@ proc visitClassStmt(r: var Resolver, s: ClassStmt) =
     let enclosingClass = r.curclass
     r.curclass = ctClass
     declare(r, s.name)
+    define(r, s.name)
 
     if s.superclass != nil and s.name.lexeme == s.superclass.varex.name.lexeme:
         error(s.superclass.varex.name, "A class cannot inherit from itself.")
