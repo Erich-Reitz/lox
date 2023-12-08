@@ -20,5 +20,5 @@ project requires `Nimble` which is bundled with Nim installation. To the build t
 
 ### Testing
 The program used for testing can be viewed at `tests/test.nim`. The program will automatically execute each test case, invoking the lox program with a specific test file located at `tests/<testname>/<testname>.lox`. The expected output is 
-in the same folder, at `tests/<testname>/<testname>.out`.
+in the same folder, at `tests/<testname>/<testname>.out`. The test program captures the output of the process and asserts that it is equal to the expected output for the test.
 
