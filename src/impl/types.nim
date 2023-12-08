@@ -82,7 +82,7 @@ type
         methods*: Table[string, LoxFunction]
         superclass*: LoxClass
 
-    LoxInstance* = object
+    LoxInstance* = ref object
         class*: LoxClass
         fields*: Table[string, Value]
 

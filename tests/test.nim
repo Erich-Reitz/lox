@@ -66,4 +66,18 @@ suite "integration tests":
 
   test "class_local_inherit_self":
     check runTest("class_local_inherit_self", expectsError = true)
+
+  test "class_reference_self":
+    check runTest("class_reference_self")
+
+  test "closure_nested_closure":
+    check runTest("closure_nested_closure")
   
+  test "closure_reference_closure_multiple_times":
+    check runTest("closure_reference_closure_multiple_times")
+  
+  test "closure_close_over_function_parameter":
+    check runTest("closure_close_over_function_parameter")  
+
+  test "constructor_arguments":
+    check runTest("constructor_arguments")
