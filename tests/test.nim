@@ -124,3 +124,33 @@ suite "integration tests":
   
   test "for_syntax":
     check runTest("for_syntax")
+
+  test "field_call_function_field":
+    check runTest("field_call_function_field")
+
+  test "field_call_nonfunction_field":
+    check runTest("field_call_nonfunction_field", expectsError = true)
+
+  test "field_get_and_set_method":
+    check runTest("field_get_and_set_method")
+
+  test "variable_shadow_and_local":
+    check runTest("variable_shadow_and_local")
+
+  test "variable_shadow_global":
+    check runTest("variable_shadow_global")
+
+  test "variable_collide_with_parameter":
+    check runTest("variable_collide_with_parameter", expectsError = true)
+
+  test "variable_duplicate_local":
+    check runTest("variable_duplicate_local", expectsError = true)
+
+  test "variable_duplicate_parameter":
+    check runTest("variable_duplicate_parameter", expectsError = true)
+
+  test "variable_early_bound":
+    check runTest("variable_early_bound")
+
+  test "this_this_in_method":
+    check runTest("this_this_in_method")
