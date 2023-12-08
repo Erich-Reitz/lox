@@ -119,5 +119,5 @@ suite "integration tests":
   test "local_mutual_recursion":
     check runTest("local_mutual_recursion", expectsError = true)
 
-  test "nested_call_with_arguments":
-    check runTest("nested_call_with_arguments")
+  test "function_nested_call_with_arguments":
+    check runTest("function_nested_call_with_arguments")
