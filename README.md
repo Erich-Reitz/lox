@@ -2,6 +2,10 @@
 
 Lox interpreter for CS 403 project
 
+## Issues
+
+- No REPL support.
+
 ## Development Environment
 
 This project is written in the [Nim](https://nim-lang.org/) programming language and requires version 

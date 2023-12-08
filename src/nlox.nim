@@ -14,8 +14,6 @@ proc run(program: string): void =
     interpret(lexpr)
 
 
-
-
 proc runfile(filename: string): int =
     try:
         let contents = readFile(filename)
@@ -32,30 +30,15 @@ proc runfile(filename: string): int =
         echo e.msg
         return QuitFailure
 
-proc runPrompt(): int =
-    while true:
-        stdout.write "> "
-        let line = readLine(stdin)
-        if len(line) == 0:
-            break
-
-        run(line)
-        status.hadError = false
-    return QuitSuccess
-
 proc main() =
     let paramCount = os.paramCount()
-    if paramCount > 1:
+    if paramCount != 1:
         echo "Usage: ./nlox [script]"
         quit(QuitFailure)
-    elif paramCount == 1:
+    else:
         let filename = os.paramStr(1)
         let result = runfile(filename)
         quit(result)
-    else:
-        let result = runPrompt()
-        quit(result)
-
 
 
 when isMainModule:
