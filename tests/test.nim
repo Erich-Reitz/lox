@@ -108,3 +108,16 @@ suite "integration tests":
 
   test "super_constructor":
     check runTest("super_constructor")
+
+  test "print_missing_argument":
+    check runTest("print_missing_argument", expectsError = true)  
+  
+  test "function_mutual_recursion":
+    check runTest("function_mutual_recursion")
+  
+  # yes, it really does expect an error
+  test "local_mutual_recursion":
+    check runTest("local_mutual_recursion", expectsError = true)
+
+  test "nested_call_with_arguments":
+    check runTest("nested_call_with_arguments")
