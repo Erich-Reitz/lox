@@ -61,6 +61,9 @@ suite "integration tests":
   test "class_inherited_method":
     check runTest("class_inherited_method") 
 
-  test "local_inherit_other":
-    check runTest("local_inherit_other")
+  test "class_local_inherit_other":
+    check runTest("class_local_inherit_other")
+
+  test "class_local_inherit_self":
+    check runTest("class_local_inherit_self", expectsError = true)
   
